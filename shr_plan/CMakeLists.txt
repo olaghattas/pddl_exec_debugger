@@ -23,6 +23,7 @@ find_package(shr_parameters REQUIRED)
 find_package(shr_utils REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(builtin_interfaces REQUIRED)
+find_package(gui_interfaces REQUIRED)
 # find_package(date REQUIRED)
 
 
@@ -40,6 +41,7 @@ set(dependencies
     shr_parameters
     shr_utils
     tf2_ros
+    gui_interfaces
     behaviortree_cpp_v3
     builtin_interfaces
     )
@@ -75,7 +77,7 @@ install(TARGETS
   )
 
 install(
-    DIRECTORY launch pddl
+    DIRECTORY pddl
     DESTINATION share/shr_plan
 )
 

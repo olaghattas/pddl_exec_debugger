@@ -23,7 +23,9 @@ class TrueFalseGroup(QWidget):
         main_layout.addWidget(label_location_rob)
         # Create the dropdown (combo box) for location selection
         self.location_robot_dropdown = QComboBox()
-        self.location_robot_dropdown.addItems(['', 'LivingRoom', 'Home', 'Outside', 'Bedroom'])
+        self.location_robot_dropdown.addItems(['', 'living_room', 'home', 'outside', 'bedroom'])
+        # self.location_robot_dropdown.setCurrentText('living_room')
+
         # Add the dropdown to the main layout
         main_layout.addWidget(self.location_robot_dropdown)
         ##### End robot location dropdown ###########
@@ -35,7 +37,7 @@ class TrueFalseGroup(QWidget):
         main_layout.addWidget(label_location_person)
         # Create the dropdown (combo box) for location selection
         self.location_person_dropdown = QComboBox()
-        self.location_person_dropdown.addItems(['', 'LivingRoom', 'Outside', 'Bedroom'])
+        self.location_person_dropdown.addItems(['', 'living_room', 'outside', 'bedroom'])
         # Add the dropdown to the main layout
         main_layout.addWidget(self.location_person_dropdown)
         ##### End person location dropdown ###########

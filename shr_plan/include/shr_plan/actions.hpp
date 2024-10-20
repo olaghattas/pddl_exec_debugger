@@ -2,7 +2,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include <shr_plan/world_state_converter.hpp>
 #include "shr_plan/helpers.hpp"
-
+#include "gui_interfaces/srv/action_req.hpp"
 
 namespace pddl_lib {
 
@@ -196,6 +196,32 @@ namespace pddl_lib {
 
     }
 
+    std::string send_request(const std::string &question, ProtocolState &ps) {
+        auto request = std::make_shared<ActionReq::Request>();
+        request->question = question;
+
+        // Wait for the service to become available
+        while (!ps.world_state_converter->client_->wait_for_service(std::chrono::seconds(1))) {
+            if (!rclcpp::ok()) {
+                std::cout << "Interrupted while waiting for the service. Exiting." << std::endl;
+                return "";  // Return empty string if service is not available
+            }
+            std::cout << "Waiting for service to be available..." << std::endl;
+        }
+
+        // Send the request asynchronously
+        auto result_future = ps.world_state_converter->client_->async_send_request(request);
+        // Wait for the result
+        if (rclcpp::spin_until_future_complete(ps.world_state_converter->this->get_node_base_interface(), result_future) ==
+            rclcpp::executor::FutureReturnCode::SUCCESS) {
+            std::cout << "Response: '" << result_future.get()->response << "'" << std::endl;
+            return result_future.get()->response;  // Return the response
+        } else {
+            std::cout << "Failed to call service" << std::endl;
+            return "";  // Return empty string on failure
+        }
+    }
+
     class ProtocolActions : public pddl_lib::ActionInterface {
     public:
         std::string input;
@@ -206,6 +232,9 @@ namespace pddl_lib {
             auto &kb = KnowledgeBase::getInstance();
             kb.clear_unknowns();
             kb.insert_predicate({"abort", {}});
+
+            InstantiatedParameter home = {"home", "landmark"};
+            kb.insert_predicate({"robot_at", {home}});
 
             // CHECKING IF ROBOT IS CHARGING FIRST
             auto [ps, lock] = ProtocolState::getConcurrentInstance();
@@ -220,9 +249,14 @@ namespace pddl_lib {
             if (!ps.world_state_converter->get_world_state_msg()->robot_charging == 1) {
                 std::cout << "Robot not charging " << std::endl;
                 auto robot_resource = ps.claimRobot();
+                std::string question = "Did the robot navigate successfully? (y/n)";
+                std::string input = ps.world_state_converter->client_.send_request(question);  // Store the response from the service
 
-                std::cout << "Did the robot navigate successfully to home? (y/n): ";
-                std::cin >> input;
+                if (!input.empty()) {
+                    std::cout << "Received response from service: " << input << std::endl;
+                } else {
+                    std::cout << "No valid response received." << std::endl;
+                }
 
                 // Convert input to lowercase to make the input case-insensitive
                 // Transform each character to lowercase
@@ -231,6 +265,30 @@ namespace pddl_lib {
 
                 if (input == "y") {
                     std::cout << "You chose yes.\n";
+                    std::cout << "Moving robot to home location.\n";
+
+                    InstantiatedPredicate pred{"already_took_medicine", {ps.active_protocol}};
+                    kb.insert_predicate(pred);
+
+                    InstantiatedParameter param_rob{ps.world_state_converter->robot_at, "landmark"};
+                    InstantiatedPredicate pred_rem{"robot_at", {param_rob}};
+                    kb.erase_predicate(pred_rem);
+
+                    std::string input_;
+                    std::cout << "for debug? (y/n): ";
+                    std::cin >> input_;
+
+//                    InstantiatedParameter param{"home", "landmark"};
+//                    InstantiatedPredicate pred{"robot_at", {param}};
+//                    kb.insert_predicate(pred);
+
+                    InstantiatedParameter home = {"home", "landmark"};
+                    kb.insert_predicate({"robot_at", {home}});
+
+                    std::cout << "Moving robot to home location insert_predicate.\n";
+
+
+
                 } else if (input == "n") {
                     std::cout << "You chose no.\n";
                     lock.UnLock();
@@ -433,7 +491,42 @@ namespace pddl_lib {
             auto timeout = std::chrono::minutes(input_time);
 
             std::cout << "************** Will wait for " << input_time << " minutes **************" << std::endl;
-            while (std::chrono::steady_clock::now() - start_time < timeout) {
+            std::cout << "Did the robot navigate successfully to home? (y/n): ";
+            std::cin >> input;
+
+            // Convert input to lowercase to make the input case-insensitive
+            // Transform each character to lowercase
+            std::transform(input.begin(), input.end(), input.begin(),
+                           [](unsigned char c) { return std::tolower(c); });
+
+            if (input == "y") {
+                std::cout << "You chose yes.\n";
+                std::cout << "Moving robot to home location.\n";
+
+                InstantiatedPredicate pred{"already_took_medicine", {ps.active_protocol}};
+                kb.insert_predicate(pred);
+
+                InstantiatedParameter param_rob{ps.world_state_converter->robot_at, "landmark"};
+                InstantiatedPredicate pred_rem{"robot_at", {param_rob}};
+                kb.erase_predicate(pred_rem);
+
+                std::string input_;
+                std::cout << "for debug? (y/n): ";
+                std::cin >> input_;
+
+//                    InstantiatedParameter param{"home", "landmark"};
+//                    InstantiatedPredicate pred{"robot_at", {param}};
+//                    kb.insert_predicate(pred);
+
+                InstantiatedParameter home = {"home", "landmark"};
+                kb.insert_predicate({"robot_at", {home}});
+
+                std::cout << "Moving robot to home location insert_predicate.\n";
+            }
+
+
+
+                while (std::chrono::steady_clock::now() - start_time < timeout) {
 
                 if (ps.world_state_converter->check_person_at_loc("visible_area")) {
                     std::string currentDateTime = getCurrentDateTime();
@@ -644,6 +737,7 @@ namespace pddl_lib {
                     "user...");
             auto [ps, lock] = ProtocolState::getConcurrentInstance();
             lock.Lock();
+            auto &kb = KnowledgeBase::getInstance();
             std::string location = action.parameters[2].name;
             std::cout << "Going to location" << location << std::endl;
 
@@ -651,7 +745,7 @@ namespace pddl_lib {
                 std::cout << "Robot is charging " << std::endl;
                 std::cout << "Undocking " << std::endl;
 
-                std::cout << "Did the robot navigate successfully to home? (y/n): ";
+                std::cout << "Did the robot navigate successfully? (y/n): ";
                 std::cin >> input;
 
                 // Convert input to lowercase to make the input case-insensitive
@@ -661,6 +755,14 @@ namespace pddl_lib {
 
                 if (input == "y") {
                     std::cout << "You chose yes.\n";
+                    InstantiatedParameter param_rob{ps.world_state_converter->robot_at, "landmark"};
+                    InstantiatedPredicate pred_rem{"robot_at", {param_rob}};
+                    kb.erase_predicate(pred_rem);
+
+                    InstantiatedParameter param{location, "landmark"};
+                    InstantiatedPredicate pred_add{"robot_at", {param}};
+                    kb.insert_predicate(pred_add);
+
                 } else if (input == "n") {
                     std::cout << "You chose no.\n";
                     lock.UnLock();
@@ -673,7 +775,7 @@ namespace pddl_lib {
                 lock.UnLock();
                 return BT::NodeStatus::SUCCESS;
             } else {
-                std::cout << "Did the robot navigate successfully to home? (y/n): ";
+                std::cout << "Did the robot navigate successfully? (y/n): ";
                 std::cin >> input;
 
                 // Convert input to lowercase to make the input case-insensitive
@@ -683,6 +785,14 @@ namespace pddl_lib {
 
                 if (input == "y") {
                     std::cout << "You chose yes.\n";
+                    InstantiatedParameter param_rob{ps.world_state_converter->robot_at, "landmark"};
+                    InstantiatedPredicate pred_rem{"robot_at", {param_rob}};
+                    kb.erase_predicate(pred_rem);
+
+                    InstantiatedParameter param{location, "landmark"};
+                    InstantiatedPredicate pred_add{"robot_at", {param}};
+                    kb.insert_predicate(pred_add);
+
                 } else if (input == "n") {
                     std::cout << "You chose no.\n";
                     lock.UnLock();

@@ -86,6 +86,7 @@ public:
     }
 
     TRUTH_VALUE robot_at(TRUTH_VALUE val, Landmark lm) const override {
+//        std::cout << lm << std::endl;
         if (world_state_converter->check_robot_at_loc(lm)) {
             return TRUTH_VALUE::TRUE;
         } else {
@@ -112,7 +113,7 @@ public:
             return val;
         }
         if (world_state_converter->check_person_at_loc(lm)) {
-            std::cout << "person_At " << lm << std::endl;
+//            std::cout << "person_At " << lm << std::endl;
             return TRUTH_VALUE::TRUE;
         } else {
             return TRUTH_VALUE::FALSE;
@@ -123,6 +124,7 @@ public:
         auto params = world_state_converter->get_params();
         if (auto index = get_inst_index(m, params)) {
             if (compare_time(params.pddl.MedicineProtocols.take_medication_times[index.value()])) {
+//                std::cout << "---- time_to_take_medicine ----" << std::endl;
                 return TRUTH_VALUE::TRUE;
             }
         }
@@ -133,6 +135,7 @@ public:
         auto params = world_state_converter->get_params();
         if (auto index = get_inst_index(m, params)) {
             if (compare_time(params.pddl.ExerciseReminderProtocols.exercise_reminder_times[index.value()])) {
+//                std::cout << "---- time_for_exercise_reminder ----" << std::endl;
                 return TRUTH_VALUE::TRUE;
             }
         }
@@ -143,6 +146,7 @@ public:
         auto params = world_state_converter->get_params();
         if (auto index = get_inst_index(m, params)) {
             if (compare_time(params.pddl.MoveReminderProtocols.move_reminder_times[index.value()])) {
+//                std::cout << "---- time_for_move_reminder ----" << std::endl;
                 return TRUTH_VALUE::TRUE;
             }
         }
@@ -153,6 +157,7 @@ public:
         auto params = world_state_converter->get_params();
         if (auto index = get_inst_index(m, params)) {
             if (compare_time(params.pddl.InternalCheckReminderProtocols.internal_check_reminder_times[index.value()])) {
+//                std::cout << "---- time_for_internal_check_reminder ----" << std::endl;
                 return TRUTH_VALUE::TRUE;
             }
         }
@@ -163,6 +168,7 @@ public:
         auto params = world_state_converter->get_params();
         if (auto index = get_inst_index(m, params)) {
             if (compare_time(params.pddl.PracticeReminderProtocols.practice_reminder_times[index.value()])) {
+//                std::cout << "---- time_for_practice_reminder ----" << std::endl;
                 return TRUTH_VALUE::TRUE;
             }
         }
@@ -178,6 +184,7 @@ public:
             return TRUTH_VALUE::TRUE;
         }
         if (world_state_converter->get_world_state_msg()->person_taking_medicine == 1) {
+            std::cout << "---- person_taking_medicine ----" << std::endl;
             return TRUTH_VALUE::TRUE;
         }
         return val;
@@ -192,6 +199,7 @@ public:
         if (auto index = get_inst_index(m, params)) {
             if (world_state_converter->get_world_state_msg()->person_taking_medicine == 1 &&
                 compare_time(params.pddl.MedicineProtocols.take_medication_times[index.value()])) {
+                std::cout << "---- already_took_medicine ----" << std::endl;
                 return TRUTH_VALUE::TRUE;
             }
             return val;
@@ -320,7 +328,6 @@ int main(int argc, char **argv) {
         lock.UnLock();
     }
 
-    // localize to start navigation and move to home position
     auto [ps, lock] = ProtocolState::getConcurrentInstance();
 
     instantiate_high_level_problem();

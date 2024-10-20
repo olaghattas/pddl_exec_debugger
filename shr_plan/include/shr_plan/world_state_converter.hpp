@@ -6,7 +6,7 @@
 #include <std_msgs/msg/string.hpp>
 #include <tf2_ros/transform_listener.h>
 #include <shr_parameters.hpp>
-
+#include "gui_interfaces/srv/action_req.hpp"
 
 #pragma once
 
@@ -18,8 +18,6 @@ private:
     rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr taking_medicine_sub_;
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr person_at_;
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr robot_at_;
-    std::string person_at;
-    std::string robot_at;
     std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
     std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
     std::shared_ptr<shr_msgs::msg::WorldState> world_state_;
@@ -29,7 +27,12 @@ private:
     bool terminate_node_;
     std::shared_ptr<shr_parameters::ParamListener> param_listener_;
 
+
+
 public:
+    std::string person_at;
+    std::string robot_at;
+    rclcpp::Client<ActionReq>::SharedPtr client_;
 
     WorldStateListener(const std::string &node_name,  std::shared_ptr<shr_parameters::ParamListener> param_listener)
             : rclcpp::Node(
@@ -72,17 +75,18 @@ public:
                 "person_at", 10, [this](const std_msgs::msg::String::SharedPtr msg) {
                     person_at=msg->data;
                 });
+        client_ = this->create_client<ActionReq>("input_request");
     }
 
     bool check_robot_at_loc(const std::string &loc) {
-        std::cout << "robot at: "<< robot_at << std::endl;
-        std::cout << "loc "<< loc << std::endl;
+//        std::cout << "robot at: "<< robot_at << std::endl;
+//        std::cout << "loc "<< loc << std::endl;
         return (loc == robot_at);
     }
 
     bool check_person_at_loc(const std::string &loc) {
-        std::cout << "person at: "<< person_at << std::endl;
-        std::cout << "loc "<< loc << std::endl;
+//        std::cout << "person at: "<< person_at << std::endl;
+//        std::cout << "loc "<< loc << std::endl;
         return (loc == person_at);
     }
 
