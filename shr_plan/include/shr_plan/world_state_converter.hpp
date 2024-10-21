@@ -26,13 +26,11 @@ private:
     std::mutex world_state_mtx;
     bool terminate_node_;
     std::shared_ptr<shr_parameters::ParamListener> param_listener_;
-
-
+    rclcpp::Client<gui_interfaces::srv::ActionReq>::SharedPtr client_;
 
 public:
     std::string person_at;
     std::string robot_at;
-    rclcpp::Client<ActionReq>::SharedPtr client_;
 
     WorldStateListener(const std::string &node_name,  std::shared_ptr<shr_parameters::ParamListener> param_listener)
             : rclcpp::Node(
@@ -75,7 +73,35 @@ public:
                 "person_at", 10, [this](const std_msgs::msg::String::SharedPtr msg) {
                     person_at=msg->data;
                 });
-        client_ = this->create_client<ActionReq>("input_request");
+        client_ = this->create_client<gui_interfaces::srv::ActionReq>("input_request");
+    }
+
+    std::string send_request(const std::string &question, const std::string &location) {
+        auto request = std::make_shared<gui_interfaces::srv::ActionReq::Request>();
+        request->question = question;
+        request->location = location;
+
+        // Wait for the service to become available
+        while (!client_->wait_for_service(std::chrono::seconds(1))) {
+            if (!rclcpp::ok()) {
+                std::cout << "Interrupted while waiting for the service. Exiting." << std::endl;
+                return "";  // Return empty string if service is not available
+            }
+            std::cout << "Waiting for service to be available..." << std::endl;
+        }
+
+        // Send the request asynchronously
+        auto result_future = client_->async_send_request(request);
+
+        // Non-blocking check if the future is ready
+        if (result_future.wait_for(std::chrono::seconds(50)) == std::future_status::ready) {
+            auto response =  result_future.get()->response;
+            std::cout << "Response: '" << response << "'" << std::endl;
+            return response;
+        } else {
+            std::cout << "Service not ready or timed out." << std::endl;
+            return "";  // Return empty string if the result is not ready or timed out
+        }
     }
 
     bool check_robot_at_loc(const std::string &loc) {

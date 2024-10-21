@@ -10,12 +10,22 @@ namespace pddl_lib {
     public:
         InstantiatedParameter active_protocol;
         std::shared_ptr <WorldStateListener> world_state_converter;
+        const std::unordered_map <std::string, std::string>
+        questions_map = {
+                {"navigation", "Did the robot navigate successfully? (y/n)"},
+                {"dock", "Did the robot dock successfully? (y/n):"},
+                {"undock", "Did the robot undock"},
+                {"time_wait_visible", "How long should the robot wait until person is in visible area in minutes?: "},
+                {"time_wait", "How long should the robot wait until next step in minutes? : "},
+                {"read_script", "Did the robot read script successfully? (y/n): "},
+                {"play_audio", "Did the robot play audio successfully? (y/n): "},
+
+        };
         // change first to change time (x  before y after)
-        const std::unordered_map <InstantiatedParameter, std::unordered_map<std::string, std::pair < int, int>>>
         // Msg in PDDL
         // name field should be the same as the name of the protocol in the high_level_problem
         // make sure the txt files and mp3 are in shr_resources
-
+        const std::unordered_map <InstantiatedParameter, std::unordered_map<std::string, std::pair < int, int>>>
         wait_times = {
                 {{"am_meds",                 "MedicineProtocol"},              {{"reminder_1_msg", {0, 1}},
                                                                                        {"reminder_2_msg", {0, 1}},
@@ -196,31 +206,7 @@ namespace pddl_lib {
 
     }
 
-    std::string send_request(const std::string &question, ProtocolState &ps) {
-        auto request = std::make_shared<ActionReq::Request>();
-        request->question = question;
 
-        // Wait for the service to become available
-        while (!ps.world_state_converter->client_->wait_for_service(std::chrono::seconds(1))) {
-            if (!rclcpp::ok()) {
-                std::cout << "Interrupted while waiting for the service. Exiting." << std::endl;
-                return "";  // Return empty string if service is not available
-            }
-            std::cout << "Waiting for service to be available..." << std::endl;
-        }
-
-        // Send the request asynchronously
-        auto result_future = ps.world_state_converter->client_->async_send_request(request);
-        // Wait for the result
-        if (rclcpp::spin_until_future_complete(ps.world_state_converter->this->get_node_base_interface(), result_future) ==
-            rclcpp::executor::FutureReturnCode::SUCCESS) {
-            std::cout << "Response: '" << result_future.get()->response << "'" << std::endl;
-            return result_future.get()->response;  // Return the response
-        } else {
-            std::cout << "Failed to call service" << std::endl;
-            return "";  // Return empty string on failure
-        }
-    }
 
     class ProtocolActions : public pddl_lib::ActionInterface {
     public:
@@ -232,9 +218,6 @@ namespace pddl_lib {
             auto &kb = KnowledgeBase::getInstance();
             kb.clear_unknowns();
             kb.insert_predicate({"abort", {}});
-
-            InstantiatedParameter home = {"home", "landmark"};
-            kb.insert_predicate({"robot_at", {home}});
 
             // CHECKING IF ROBOT IS CHARGING FIRST
             auto [ps, lock] = ProtocolState::getConcurrentInstance();
@@ -249,15 +232,7 @@ namespace pddl_lib {
             if (!ps.world_state_converter->get_world_state_msg()->robot_charging == 1) {
                 std::cout << "Robot not charging " << std::endl;
                 auto robot_resource = ps.claimRobot();
-                std::string question = "Did the robot navigate successfully? (y/n)";
-                std::string input = ps.world_state_converter->client_.send_request(question);  // Store the response from the service
-
-                if (!input.empty()) {
-                    std::cout << "Received response from service: " << input << std::endl;
-                } else {
-                    std::cout << "No valid response received." << std::endl;
-                }
-
+                input = ps.world_state_converter->send_request(ps.questions_map.at("navigation"),"home");
                 // Convert input to lowercase to make the input case-insensitive
                 // Transform each character to lowercase
                 std::transform(input.begin(), input.end(), input.begin(),
@@ -267,27 +242,13 @@ namespace pddl_lib {
                     std::cout << "You chose yes.\n";
                     std::cout << "Moving robot to home location.\n";
 
-                    InstantiatedPredicate pred{"already_took_medicine", {ps.active_protocol}};
-                    kb.insert_predicate(pred);
-
                     InstantiatedParameter param_rob{ps.world_state_converter->robot_at, "landmark"};
                     InstantiatedPredicate pred_rem{"robot_at", {param_rob}};
                     kb.erase_predicate(pred_rem);
 
-                    std::string input_;
-                    std::cout << "for debug? (y/n): ";
-                    std::cin >> input_;
-
-//                    InstantiatedParameter param{"home", "landmark"};
-//                    InstantiatedPredicate pred{"robot_at", {param}};
-//                    kb.insert_predicate(pred);
 
                     InstantiatedParameter home = {"home", "landmark"};
                     kb.insert_predicate({"robot_at", {home}});
-
-                    std::cout << "Moving robot to home location insert_predicate.\n";
-
-
 
                 } else if (input == "n") {
                     std::cout << "You chose no.\n";
@@ -300,9 +261,7 @@ namespace pddl_lib {
                 }
 
 
-                std::cout << "Did the robot dock successfully? (y/n): ";
-                std::cin >> input;
-
+                input = ps.world_state_converter->send_request(ps.questions_map.at("dock"),"");
                 // Convert input to lowercase to make the input case-insensitive
                 // Transform each character to lowercase
                 std::transform(input.begin(), input.end(), input.begin(),
@@ -327,6 +286,8 @@ namespace pddl_lib {
             if (ps.world_state_converter->get_world_state_msg()->robot_charging != 1) {
                 std::cout << "ROBOT NOT CHARGING AFTER DOCKING " << std::endl;
                 std::cout << "Undock " << std::endl;
+                input = ps.world_state_converter->send_request(ps.questions_map.at("undock"),"");
+
             }
             ps.active_protocol = {};
             lock.UnLock();
@@ -486,47 +447,17 @@ namespace pddl_lib {
 
             auto start_time = std::chrono::steady_clock::now();
 
-            std::cout << "How long should the robot wait until person is in visible area in minutes?: ";
-            std::cin >> input_time;
+            input_time = stoi(ps.world_state_converter->send_request(ps.questions_map.at("time_wait_visible"),""));
             auto timeout = std::chrono::minutes(input_time);
 
             std::cout << "************** Will wait for " << input_time << " minutes **************" << std::endl;
-            std::cout << "Did the robot navigate successfully to home? (y/n): ";
-            std::cin >> input;
-
             // Convert input to lowercase to make the input case-insensitive
             // Transform each character to lowercase
             std::transform(input.begin(), input.end(), input.begin(),
                            [](unsigned char c) { return std::tolower(c); });
 
-            if (input == "y") {
-                std::cout << "You chose yes.\n";
-                std::cout << "Moving robot to home location.\n";
 
-                InstantiatedPredicate pred{"already_took_medicine", {ps.active_protocol}};
-                kb.insert_predicate(pred);
-
-                InstantiatedParameter param_rob{ps.world_state_converter->robot_at, "landmark"};
-                InstantiatedPredicate pred_rem{"robot_at", {param_rob}};
-                kb.erase_predicate(pred_rem);
-
-                std::string input_;
-                std::cout << "for debug? (y/n): ";
-                std::cin >> input_;
-
-//                    InstantiatedParameter param{"home", "landmark"};
-//                    InstantiatedPredicate pred{"robot_at", {param}};
-//                    kb.insert_predicate(pred);
-
-                InstantiatedParameter home = {"home", "landmark"};
-                kb.insert_predicate({"robot_at", {home}});
-
-                std::cout << "Moving robot to home location insert_predicate.\n";
-            }
-
-
-
-                while (std::chrono::steady_clock::now() - start_time < timeout) {
+            while (std::chrono::steady_clock::now() - start_time < timeout) {
 
                 if (ps.world_state_converter->check_person_at_loc("visible_area")) {
                     std::string currentDateTime = getCurrentDateTime();
@@ -660,8 +591,7 @@ namespace pddl_lib {
             //  fix for all 
 //            int wait_time = ps.wait_times.at(ps.active_protocol).at(msg).first;
 
-            std::cout << "How long should the robot wait until next step in minutes? : ";
-            std::cin >> input_time;
+            input_time = stoi(ps.world_state_converter->send_request(ps.questions_map.at("time_wait"),""));
             int wait_time = input_time;
 
             std::cout << "************** Will wait for " << input_time << " minutes **************" << std::endl;
@@ -744,10 +674,9 @@ namespace pddl_lib {
             if (ps.world_state_converter->get_world_state_msg()->robot_charging == 1) {
                 std::cout << "Robot is charging " << std::endl;
                 std::cout << "Undocking " << std::endl;
+                input = ps.world_state_converter->send_request(ps.questions_map.at("undock"),"");
 
-                std::cout << "Did the robot navigate successfully? (y/n): ";
-                std::cin >> input;
-
+                input = ps.world_state_converter->send_request(ps.questions_map.at("navigation"), location);
                 // Convert input to lowercase to make the input case-insensitive
                 // Transform each character to lowercase
                 std::transform(input.begin(), input.end(), input.begin(),
@@ -755,13 +684,7 @@ namespace pddl_lib {
 
                 if (input == "y") {
                     std::cout << "You chose yes.\n";
-                    InstantiatedParameter param_rob{ps.world_state_converter->robot_at, "landmark"};
-                    InstantiatedPredicate pred_rem{"robot_at", {param_rob}};
-                    kb.erase_predicate(pred_rem);
-
-                    InstantiatedParameter param{location, "landmark"};
-                    InstantiatedPredicate pred_add{"robot_at", {param}};
-                    kb.insert_predicate(pred_add);
+                    // TODO: add automatic update to KB
 
                 } else if (input == "n") {
                     std::cout << "You chose no.\n";
@@ -775,8 +698,7 @@ namespace pddl_lib {
                 lock.UnLock();
                 return BT::NodeStatus::SUCCESS;
             } else {
-                std::cout << "Did the robot navigate successfully? (y/n): ";
-                std::cin >> input;
+                input = ps.world_state_converter->send_request(ps.questions_map.at("navigation"), location);
 
                 // Convert input to lowercase to make the input case-insensitive
                 // Transform each character to lowercase
@@ -785,13 +707,8 @@ namespace pddl_lib {
 
                 if (input == "y") {
                     std::cout << "You chose yes.\n";
-                    InstantiatedParameter param_rob{ps.world_state_converter->robot_at, "landmark"};
-                    InstantiatedPredicate pred_rem{"robot_at", {param_rob}};
-                    kb.erase_predicate(pred_rem);
+                    // TODO: add automatic update to KB
 
-                    InstantiatedParameter param{location, "landmark"};
-                    InstantiatedPredicate pred_add{"robot_at", {param}};
-                    kb.insert_predicate(pred_add);
 
                 } else if (input == "n") {
                     std::cout << "You chose no.\n";
@@ -836,8 +753,9 @@ namespace pddl_lib {
 //
 //                ret = send_goal_blocking(read_goal_, action, ps) ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
 
-                std::cout << "Did the robot read script successfully? (y/n): ";
-                std::cin >> input;
+                input = ps.world_state_converter->send_request(ps.questions_map.at("read_script"),"");
+
+
 
                 // Convert input to lowercase to make the input case-insensitive
                 // Transform each character to lowercase
@@ -861,9 +779,7 @@ namespace pddl_lib {
 //                script_name_str = std::string(audio_goal_.file_name.begin(), audio_goal_.file_name.end());
 //
 //                ret = send_goal_blocking(audio_goal_, action, ps) ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
-                std::cout << "Did the robot play audio successfully? (y/n): ";
-                std::cin >> input;
-
+                input = ps.world_state_converter->send_request(ps.questions_map.at("play_audio"),"");
                 // Convert input to lowercase to make the input case-insensitive
                 // Transform each character to lowercase
                 std::transform(input.begin(), input.end(), input.begin(),

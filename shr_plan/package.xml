@@ -13,7 +13,7 @@
     <depend>builtin_interfaces</depend>
     <depend>geometry_msgs</depend>
     <depend>nav2_msgs</depend>
-    <depend>shr_msgs</depend>
+<!--    <depend>shr_msgs</depend>-->
     <depend>shr_parameters</depend>
     <depend>shr_utils</depend>
     <depend>behaviortree_cpp_v3</depend>

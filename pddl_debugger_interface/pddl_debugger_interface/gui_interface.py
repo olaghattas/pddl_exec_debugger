@@ -128,6 +128,16 @@ class TrueFalseGroup(QWidget):
         # Set the main layout for the window
         self.setLayout(main_layout)
 
+        self.questions_map = {
+            "navigation": "Did the robot navigate successfully? (y/n)",
+            "dock": "Did the robot dock successfully? (y/n):",
+            "undock": "Did the robot undock",
+            "time_wait_visible": "How long should the robot wait until person is in visible area in minutes?: ",
+            "time_wait": "How long should the robot wait until next step in minutes? : ",
+            "read_script": "Did the robot read script successfully? (y/n): ",
+            "play_audio": "Did the robot play audio successfully? (y/n): "
+        }
+
 
     def submit_response(self):
         # Get the user's response from the input box
@@ -148,7 +158,14 @@ class TrueFalseGroup(QWidget):
 
     def handle_request(self, request, response):
         question = request.question
+        location = request.location
         print("question", question)
+        if question==self.questions_map["undock"]:
+            ## shouldnt need this, only return should be needed
+            response.response = "y"
+            ## change charging to false
+            self.publish_value(0, 'charging', self.charging_true_button, self.charging_false_button)
+            return response
 
         ## so submit repsonse flag is only valid if we recive a request
         self.handle_flag = True
@@ -162,6 +179,13 @@ class TrueFalseGroup(QWidget):
             pass
 
         response.response = self.response
+        if question==self.questions_map["dock"] and self.response.lower() == "y" :
+            self.publish_value(1, 'charging', self.charging_true_button, self.charging_false_button)
+        if question==self.questions_map["navigation"] and self.response.lower() == "y" :
+            self.location_robot_dropdown.setCurrentText(location)
+            msg = String()
+            msg.data = location
+            self.publisher_robot_location.publish(msg)
         print("self.flag",self.flag)
         self.flag = False
         self.handle_flag = False
@@ -199,6 +223,11 @@ class TrueFalseGroup(QWidget):
         # Create buttons
         true_button = QPushButton('True')
         false_button = QPushButton('False')
+
+        # For "charging" question, save buttons in dedicated attributes
+        if topic_name == "charging":
+            self.charging_true_button = true_button
+            self.charging_false_button = false_button
 
         # Add buttons to the horizontal layout
         button_layout.addWidget(true_button)

@@ -18,7 +18,7 @@ find_package(nav2_msgs REQUIRED)
 find_package(pddl2cpp REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_action REQUIRED)
-find_package(shr_msgs REQUIRED)
+#find_package(shr_msgs REQUIRED)
 find_package(shr_parameters REQUIRED)
 find_package(shr_utils REQUIRED)
 find_package(tf2_ros REQUIRED)
@@ -37,7 +37,7 @@ set(dependencies
     nav2_msgs
     rclcpp
     rclcpp_action
-    shr_msgs
+#    shr_msgs
     shr_parameters
     shr_utils
     tf2_ros

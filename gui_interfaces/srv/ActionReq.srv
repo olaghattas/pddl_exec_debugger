@@ -1,3 +1,4 @@
 string question  # question from the C++ application
+string location
 ---
 string response  # Response to be sent back to C++
