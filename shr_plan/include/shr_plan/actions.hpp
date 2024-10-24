@@ -11,14 +11,14 @@ namespace pddl_lib {
         InstantiatedParameter active_protocol;
         std::shared_ptr <WorldStateListener> world_state_converter;
         const std::unordered_map <std::string, std::string>
-        questions_map = {
-                {"navigation", "Did the robot navigate successfully? (y/n)"},
-                {"dock", "Did the robot dock successfully? (y/n):"},
-                {"undock", "Did the robot undock"},
+                questions_map = {
+                {"navigation",        "Did the robot navigate successfully? (y/n)"},
+                {"dock",              "Did the robot dock successfully? (y/n):"},
+                {"undock",            "Did the robot undock"},
                 {"time_wait_visible", "How long should the robot wait until person is in visible area in minutes?: "},
-                {"time_wait", "How long should the robot wait until next step in minutes? : "},
-                {"read_script", "Did the robot read script successfully? (y/n): "},
-                {"play_audio", "Did the robot play audio successfully? (y/n): "},
+                {"time_wait",         "How long should the robot wait until next step in minutes? : "},
+                {"read_script",       "Did the robot read script successfully? (y/n): "},
+                {"play_audio",        "Did the robot play audio successfully? (y/n): "},
 
         };
         // change first to change time (x  before y after)
@@ -207,13 +207,12 @@ namespace pddl_lib {
     }
 
 
-
     class ProtocolActions : public pddl_lib::ActionInterface {
     public:
         std::string input;
         int input_time;
 
-        // Timeout for now doesnt do anything inrodere for the protocol to be retriggered
+        // Timeout for now doesn't do anything inorder for the protocol to be retriggered
         BT::NodeStatus high_level_domain_Idle(const InstantiatedAction &action) override {
             auto &kb = KnowledgeBase::getInstance();
             kb.clear_unknowns();
@@ -224,15 +223,13 @@ namespace pddl_lib {
             lock.Lock();
 //            auto params = ps.world_state_converter->get_params();
 
-
             std::cout << " ------ HIGH LEVEL IDLE ----" << std::endl;
             RCLCPP_INFO(rclcpp::get_logger(std::string("user=") + "high_level_domain_Idle" + "started"), "user...");
-
 
             if (!ps.world_state_converter->get_world_state_msg()->robot_charging == 1) {
                 std::cout << "Robot not charging " << std::endl;
                 auto robot_resource = ps.claimRobot();
-                input = ps.world_state_converter->send_request(ps.questions_map.at("navigation"),"home");
+                input = ps.world_state_converter->send_request(ps.questions_map.at("navigation"), "home");
                 // Convert input to lowercase to make the input case-insensitive
                 // Transform each character to lowercase
                 std::transform(input.begin(), input.end(), input.begin(),
@@ -241,15 +238,6 @@ namespace pddl_lib {
                 if (input == "y") {
                     std::cout << "You chose yes.\n";
                     std::cout << "Moving robot to home location.\n";
-
-                    InstantiatedParameter param_rob{ps.world_state_converter->robot_at, "landmark"};
-                    InstantiatedPredicate pred_rem{"robot_at", {param_rob}};
-                    kb.erase_predicate(pred_rem);
-
-
-                    InstantiatedParameter home = {"home", "landmark"};
-                    kb.insert_predicate({"robot_at", {home}});
-
                 } else if (input == "n") {
                     std::cout << "You chose no.\n";
                     lock.UnLock();
@@ -261,7 +249,7 @@ namespace pddl_lib {
                 }
 
 
-                input = ps.world_state_converter->send_request(ps.questions_map.at("dock"),"");
+                input = ps.world_state_converter->send_request(ps.questions_map.at("dock"), "");
                 // Convert input to lowercase to make the input case-insensitive
                 // Transform each character to lowercase
                 std::transform(input.begin(), input.end(), input.begin(),
@@ -286,12 +274,21 @@ namespace pddl_lib {
             if (ps.world_state_converter->get_world_state_msg()->robot_charging != 1) {
                 std::cout << "ROBOT NOT CHARGING AFTER DOCKING " << std::endl;
                 std::cout << "Undock " << std::endl;
-                input = ps.world_state_converter->send_request(ps.questions_map.at("undock"),"");
+                input = ps.world_state_converter->send_request(ps.questions_map.at("undock"), "");
 
             }
             ps.active_protocol = {};
             lock.UnLock();
             return BT::NodeStatus::SUCCESS;
+        }
+
+        BT::NodeStatus high_level_domain_MoveToLandmark(const InstantiatedAction &action) override {
+            InstantiatedParameter from = action.parameters[0];
+            InstantiatedParameter to = action.parameters[1];
+            InstantiatedParameter t1 = {"t1", "Time"};
+            InstantiatedAction action_inst = {"MoveToLandmark",
+                                              {t1, from, to}};
+            return shr_domain_MoveToLandmark(action_inst);
         }
 
         void abort(const InstantiatedAction &action) override {
@@ -350,6 +347,11 @@ namespace pddl_lib {
             std::cout << " ------ Start Move Reminder Protocol ----" << std::endl;
             auto &kb = KnowledgeBase::getInstance();
             InstantiatedParameter inst = action.parameters[0];
+            InstantiatedParameter cur = action.parameters[2];
+            InstantiatedParameter dest = action.parameters[3];
+            if (dest.name == cur.name) {
+                cur.name = "living_room";
+            }
 
 //            std::string currentDateTime = getCurrentDateTime();
             //RCLCPP_INFO(rclcpp::get_logger(std::string("weblog=")+"high_level_domain_StartWanderingProtocol"+"started"), "user...");
@@ -363,7 +365,9 @@ namespace pddl_lib {
 //                    " started";
 //            RCLCPP_INFO(ps.world_state_converter->get_logger(), log_message.c_str());
 
-            instantiate_protocol("move_reminder.pddl");
+//            instantiate_protocol("move_reminder.pddl");
+            instantiate_protocol("move_reminder.pddl", {{"current_loc", cur.name},
+                                               {"dest_loc",    dest.name}});
             ps.active_protocol = inst;
             lock.UnLock();
             return BT::NodeStatus::SUCCESS;
@@ -447,7 +451,7 @@ namespace pddl_lib {
 
             auto start_time = std::chrono::steady_clock::now();
 
-            input_time = stoi(ps.world_state_converter->send_request(ps.questions_map.at("time_wait_visible"),""));
+            input_time = stoi(ps.world_state_converter->send_request(ps.questions_map.at("time_wait_visible"), ""));
             auto timeout = std::chrono::minutes(input_time);
 
             std::cout << "************** Will wait for " << input_time << " minutes **************" << std::endl;
@@ -459,15 +463,21 @@ namespace pddl_lib {
 
             while (std::chrono::steady_clock::now() - start_time < timeout) {
 
-                if (ps.world_state_converter->check_person_at_loc("visible_area")) {
-                    std::string currentDateTime = getCurrentDateTime();
-                    std::string log_message = std::string("weblog=") + currentDateTime + " No action!";
-                    RCLCPP_INFO(ps.world_state_converter->get_logger(), log_message.c_str());
-                    std::this_thread::sleep_for(std::chrono::seconds(20));
-                    lock.UnLock();
-                    return BT::NodeStatus::SUCCESS;
+                std::vector <std::string> visible_area = {"living_room", "bedroom"};
+
+                for (const auto &area: visible_area) {
+                    if (ps.world_state_converter->check_person_at_loc(area)) {
+                        std::string currentDateTime = getCurrentDateTime();
+                        std::string log_message = std::string("weblog=") + currentDateTime + " No action!";
+                        RCLCPP_INFO(ps.world_state_converter->get_logger(), log_message.c_str());
+                        std::this_thread::sleep_for(std::chrono::seconds(20));
+                        lock.UnLock();
+                        return BT::NodeStatus::SUCCESS;
+                    }
+                    std::this_thread::sleep_for(std::chrono::seconds(1));  // Check every second
+
                 }
-                std::this_thread::sleep_for(std::chrono::seconds(1));  // Check every second
+
             }
 
 //            std::string currentDateTime = getCurrentDateTime();
@@ -591,7 +601,7 @@ namespace pddl_lib {
             //  fix for all 
 //            int wait_time = ps.wait_times.at(ps.active_protocol).at(msg).first;
 
-            input_time = stoi(ps.world_state_converter->send_request(ps.questions_map.at("time_wait"),""));
+            input_time = stoi(ps.world_state_converter->send_request(ps.questions_map.at("time_wait"), ""));
             int wait_time = input_time;
 
             std::cout << "************** Will wait for " << input_time << " minutes **************" << std::endl;
@@ -674,7 +684,7 @@ namespace pddl_lib {
             if (ps.world_state_converter->get_world_state_msg()->robot_charging == 1) {
                 std::cout << "Robot is charging " << std::endl;
                 std::cout << "Undocking " << std::endl;
-                input = ps.world_state_converter->send_request(ps.questions_map.at("undock"),"");
+                input = ps.world_state_converter->send_request(ps.questions_map.at("undock"), "");
 
                 input = ps.world_state_converter->send_request(ps.questions_map.at("navigation"), location);
                 // Convert input to lowercase to make the input case-insensitive
@@ -684,8 +694,6 @@ namespace pddl_lib {
 
                 if (input == "y") {
                     std::cout << "You chose yes.\n";
-                    // TODO: add automatic update to KB
-
                 } else if (input == "n") {
                     std::cout << "You chose no.\n";
                     lock.UnLock();
@@ -707,9 +715,6 @@ namespace pddl_lib {
 
                 if (input == "y") {
                     std::cout << "You chose yes.\n";
-                    // TODO: add automatic update to KB
-
-
                 } else if (input == "n") {
                     std::cout << "You chose no.\n";
                     lock.UnLock();
@@ -753,7 +758,7 @@ namespace pddl_lib {
 //
 //                ret = send_goal_blocking(read_goal_, action, ps) ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
 
-                input = ps.world_state_converter->send_request(ps.questions_map.at("read_script"),"");
+                input = ps.world_state_converter->send_request(ps.questions_map.at("read_script"), "");
 
 
 
@@ -764,6 +769,7 @@ namespace pddl_lib {
 
                 if (input == "y") {
                     std::cout << "You chose yes.\n";
+                    ret = BT::NodeStatus::SUCCESS;
                 } else if (input == "n") {
                     std::cout << "You chose no.\n";
                     ret = BT::NodeStatus::FAILURE;
@@ -771,7 +777,7 @@ namespace pddl_lib {
                     std::cout << "Invalid input. Please enter 'y' or 'n'.\n";
                     ret = BT::NodeStatus::FAILURE;
                 }
-                ret = BT::NodeStatus::SUCCESS;
+
 
             } else {
 //                shr_msgs::action::PlayAudioRequest::Goal audio_goal_;
@@ -779,7 +785,7 @@ namespace pddl_lib {
 //                script_name_str = std::string(audio_goal_.file_name.begin(), audio_goal_.file_name.end());
 //
 //                ret = send_goal_blocking(audio_goal_, action, ps) ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
-                input = ps.world_state_converter->send_request(ps.questions_map.at("play_audio"),"");
+                input = ps.world_state_converter->send_request(ps.questions_map.at("play_audio"), "");
                 // Convert input to lowercase to make the input case-insensitive
                 // Transform each character to lowercase
                 std::transform(input.begin(), input.end(), input.begin(),
@@ -787,6 +793,7 @@ namespace pddl_lib {
 
                 if (input == "y") {
                     std::cout << "You chose yes.\n";
+                    ret = BT::NodeStatus::SUCCESS;
                 } else if (input == "n") {
                     std::cout << "You chose no.\n";
                     ret = BT::NodeStatus::FAILURE;
@@ -794,7 +801,6 @@ namespace pddl_lib {
                     std::cout << "Invalid input. Please enter 'y' or 'n'.\n";
                     ret = BT::NodeStatus::FAILURE;
                 }
-                ret = BT::NodeStatus::SUCCESS;
 
             }
             if (ret == BT::NodeStatus::SUCCESS) {

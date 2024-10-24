@@ -113,7 +113,7 @@ public:
             return val;
         }
         if (world_state_converter->check_person_at_loc(lm)) {
-//            std::cout << "person_At " << lm << std::endl;
+            std::cout << "person_At " << lm << std::endl;
             return TRUTH_VALUE::TRUE;
         } else {
             return TRUTH_VALUE::FALSE;

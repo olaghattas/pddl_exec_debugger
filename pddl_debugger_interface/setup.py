@@ -21,6 +21,7 @@ setup(
     entry_points={
         'console_scripts': [
             'gui_interface = pddl_debugger_interface.gui_interface:main',
+            'gui_interface_kb = pddl_debugger_interface.gui_interface_kb_add:main',
             'service_test = pddl_debugger_interface.service_test:main',
         ],
     },

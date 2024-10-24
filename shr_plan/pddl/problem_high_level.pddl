@@ -6,12 +6,16 @@
      exercise_reminder - ExerciseReminderProtocol
      internal_check_reminder - InternalCheckReminderProtocol
      practice_reminder - PracticeReminderProtocol
-     living_room home outside bedroom - Landmark
+     living_room - Landmark
+     home - Landmark
+     outside - Landmark
+     bedroom - Landmark
      nathan - Person
      t1 - Time ;;t2 t3 t4 t5
   )
   (:init
       ;;(priority_5)
+      ;;(abort)
       (visible_location living_room)
       (visible_location bedroom)
 
