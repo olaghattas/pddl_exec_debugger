@@ -17,6 +17,8 @@
 )
 
 (:predicates
+
+  (started)
   (robot_at ?lmr - Landmark)
   (person_at ?t - Time ?p - Person ?lmp - Landmark)
   (person_currently_at ?p - Person ?lmp - Landmark)
@@ -99,6 +101,19 @@
 	:effect (and (priority_5) (not (priority_4)))
 )
 
+;; to start ros and navigation before the protocol
+(:action StartROS
+	:parameters ()
+	:precondition (;;and
+           ;; (priority_2)
+		)
+	:effect (and
+	            ;;(not (priority_2))
+                (started)
+          )
+)
+
+
 (:action StartMedReminderProtocol
 	:parameters (?m - MedicineProtocol ?lmp - Landmark ?p - Person)
 	:precondition (and
@@ -113,6 +128,7 @@
       ;; person in visible area
       (person_currently_at ?p ?lmp)
       (visible_location ?lmp)
+      (started)
     )
 	:effect (and
 	          (success)
@@ -153,6 +169,7 @@
       ;; person in visible area
       (person_currently_at ?p ?lmp)
       (visible_location ?lmp)
+      (started)
 
     )
 	:effect (and
@@ -193,6 +210,7 @@
       ;; person in visible area
       (person_currently_at ?p ?dest)
       (visible_location ?dest)
+      (started)
     )
 	:effect (and
 	          (success)
@@ -234,6 +252,7 @@
       ;; person in visible area
       (person_currently_at ?p ?lmp)
       (visible_location ?lmp)
+      (started)
 
     )
 	:effect (and
@@ -275,6 +294,7 @@
       ;; person in visible area
       (person_currently_at ?p ?lmp)
       (visible_location ?lmp)
+     ;; (started)
 
     )
 	:effect (and
@@ -318,6 +338,43 @@
                 (not (low_level_failed))
           )
 )
+
+;; shutdown is supposed to stop ros2 processes
+;; it should try to dock if it is not docked
+;; triggered when there should be protocol and it has been done
+
+(:action Shutdown
+	:parameters (?med - MedicineProtocol)
+	:precondition (and
+	    (priority_4)
+	    ;;(forall (?ask - AskBeforeHelp) (and (initiate_ask ?ask) (already_helped ?ask)))
+	    ;;(forall (?med - MedicineProtocol)
+        (and
+            (time_to_take_medicine ?med)
+            (not
+                (and
+                    (not (already_took_medicine ?med))
+                    (not (already_reminded_medicine ?med))
+                )
+            )
+        )
+        ;;)
+
+        ;;(forall (?internal - InternalCheckReminderProtocol) (not (internal_check_reminder_enabled ?internal)) )
+        ;;(forall (?practice - PracticeReminderProtocol) (not (practice_reminder_enabled ?practice)) )
+        ;;(forall (?move - MoveReminderProtocol) (not (move_reminder_enabled ?move)) )
+        ;;(forall (?ex - ExerciseReminderProtocol) (not (exercise_reminder_enabled ?ex)) )
+
+		)
+	:effect (and (success)
+	            (not (priority_5))
+                ;;(forall (?ask - AskBeforeHelp) (not (askforhelp_protocol_enabled ?ask)) )
+                (not (low_level_failed))
+                ;;(tried_shutdown)
+                (not started)
+          )
+)
+
 
 )
 

@@ -185,6 +185,96 @@ namespace pddl_lib {
         kb.load_kb(prob);
     }
 
+#include <string>
+#include <sstream>
+#include <unordered_map>
+
+    std::string ensure_unique_landmarks(const std::string &protocol_content) {
+        std::istringstream iss(protocol_content);
+        std::ostringstream oss;
+        std::unordered_map<std::string, int> landmark_count;  // To count occurrences of each landmark
+
+        std::string line;
+        while (std::getline(iss, line)) {
+            std::istringstream line_stream(line);
+            std::string word;
+            bool is_landmark_line = false;
+
+            // Check if the line contains "- Landmark"
+            if (line.find("- Landmark") != std::string::npos) {
+                is_landmark_line = true;
+            }
+
+            std::string processed_line;
+            while (line_stream >> word) {
+                // If it's a landmark line, replace duplicates with dummy names
+                if (is_landmark_line && word != "-" && word != "Landmark") {
+                    // Increment the count for the current landmark
+                    int count = ++landmark_count[word];
+
+                    // If it's the first occurrence, use the original word, otherwise use a dummy name
+                    if (count == 1) {
+                        processed_line += word + " ";
+                    } else {
+                        processed_line += "dummy" + std::to_string(count) + " ";
+                    }
+                } else {
+                    // Process non-landmark lines or non-landmark words in the line
+                    processed_line += word + " ";
+                }
+            }
+
+            oss << processed_line << '\n';
+
+            // Only clear the landmark count after a "- Landmark" line to ensure counting only within these lines
+            if (is_landmark_line) {
+                landmark_count.clear();
+            }
+        }
+        return oss.str();
+    }
+
+
+//    std::string ensure_unique_landmarks(const std::string &protocol_content) {
+//        std::istringstream iss(protocol_content);
+//        std::ostringstream oss;
+//        std::unordered_set<std::string> landmarks;  // To ensure uniqueness within "- Landmark" lines
+//
+//        std::string line;
+//        while (std::getline(iss, line)) {
+//            std::istringstream line_stream(line);
+//            std::string word;
+//            bool is_landmark_line = false;
+//
+//            // Check if the line contains "- Landmark"
+//            if (line.find("- Landmark") != std::string::npos) {
+//                is_landmark_line = true;
+//            }
+//
+//            std::string processed_line;
+//            while (line_stream >> word) {
+//                // If it's a landmark line, ensure uniqueness for each landmark
+//                if (is_landmark_line && word != "-" && word != "Landmark") {
+//                    if (landmarks.find(word) == landmarks.end()) {
+//                        landmarks.insert(word);  // Add unique landmarks
+//                        processed_line += word + " ";
+//                    }
+//                } else {
+//                    // Process non-landmark lines or non-landmark words in the line
+//                    processed_line += word + " ";
+//                }
+//            }
+//
+//            oss << processed_line << '\n';
+//
+//            // Only clear landmarks after a "- Landmark" line to ensure uniqueness only within these lines
+//            if (is_landmark_line) {
+//                landmarks.clear();
+//            }
+//        }
+//        return oss.str();
+//    }
+
     void instantiate_protocol(const std::string &protocol_name,
                               const std::vector <std::pair<std::string, std::string>> &replacements = {}) {
         auto &kb = KnowledgeBase::getInstance();
@@ -198,6 +288,12 @@ namespace pddl_lib {
         for (const auto &replacement: replacements) {
             protocol_content = replace_token(protocol_content, replacement.first, replacement.second);
         }
+
+        // Ensure uniqueness of landmarks in relevant lines if replacements exist
+//        if (!replacements.empty()){
+//            protocol_content = ensure_unique_landmarks(protocol_content);
+//        }
+
         auto prob = parse_problem(protocol_content, domain_content).value();
 
         kb.clear();
@@ -338,6 +434,65 @@ namespace pddl_lib {
             instantiate_protocol("exercise_reminder.pddl");
             ps.active_protocol = inst;
             lock.UnLock();
+            return BT::NodeStatus::SUCCESS;
+        }
+
+        BT::NodeStatus high_level_domain_Shutdown(const InstantiatedAction &action) override {
+            std::cout << " ------ Shutdown  ----" << std::endl;
+            auto &kb = KnowledgeBase::getInstance();
+//            InstantiatedParameter inst = action.parameters[0];
+//            InstantiatedParameter cur = action.parameters[2];
+//            InstantiatedParameter dest = action.parameters[3];
+//            if (dest.name == cur.name) {
+//                cur.name = "living_room";
+//            }
+            RCLCPP_INFO(rclcpp::get_logger("@@@@@@@ ########## Shutdown #################"), "Your message here");
+
+//            std::string currentDateTime = getCurrentDateTime();
+            //RCLCPP_INFO(rclcpp::get_logger(std::string("weblog=")+"high_level_domain_StartWanderingProtocol"+"started"), "user...");
+//            RCLCPP_INFO(rclcpp::get_logger(
+//                                currentDateTime + std::string("user=") + "StartMoveReminderProtocol" + "started"),
+//                        "user...");
+//            auto [ps, lock] = ProtocolState::getConcurrentInstance();
+//            lock.Lock();
+//            std::string log_message =
+//                    std::string("weblog=") + currentDateTime + " high_level_domain_StartMoveReminderProtocol" +
+//                    " started";
+//            RCLCPP_INFO(ps.world_state_converter->get_logger(), log_message.c_str());
+
+//            instantiate_protocol("move_reminder.pddl");
+//            instantiate_protocol("move_reminder.pddl", {{"current_loc", cur.name},
+//                                                        {"dest_loc",    dest.name}});
+//            ps.active_protocol = inst;
+//            lock.UnLock();
+            return BT::NodeStatus::SUCCESS;
+        }
+
+        BT::NodeStatus high_level_domain_StartROS(const InstantiatedAction &action) override {
+            std::cout << " ------ Start ros ----" << std::endl;
+            auto &kb = KnowledgeBase::getInstance();
+
+            RCLCPP_INFO(rclcpp::get_logger("########## STARTT #################"), "Your message here");
+
+
+//            std::string currentDateTime = getCurrentDateTime();
+            //RCLCPP_INFO(rclcpp::get_logger(std::string("weblog=")+"high_level_domain_StartWanderingProtocol"+"started"), "user...");
+//
+//            RCLCPP_INFO(rclcpp::get_logger(
+//                                currentDateTime + std::string("user=") + "StartMoveReminderProtocol" + "started"),
+//                        "user...");
+//            auto [ps, lock] = ProtocolState::getConcurrentInstance();
+//            lock.Lock();
+//            std::string log_message =
+//                    std::string("weblog=") + currentDateTime + " high_level_domain_StartMoveReminderProtocol" +
+//                    " started";
+//            RCLCPP_INFO(ps.world_state_converter->get_logger(), log_message.c_str());
+
+//            instantiate_protocol("move_reminder.pddl");
+//            instantiate_protocol("move_reminder.pddl", {{"current_loc", cur.name},
+//                                                        {"dest_loc",    dest.name}});
+//            ps.active_protocol = inst;
+//            lock.UnLock();
             return BT::NodeStatus::SUCCESS;
         }
 
