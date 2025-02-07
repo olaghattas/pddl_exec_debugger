@@ -15,9 +15,24 @@
   )
   (:init
 
-      ;; testing medicine
+       ;; for testing
+      (time_for_internal_check_reminder internal_check_reminder)
+      (already_reminded_internal_check internal_check_reminder)
+
+      (time_for_move_reminder move_reminder)
+      (already_reminded_move move_reminder)
+
+      (time_for_exercise_reminder exercise_reminder)
+      (already_reminded_exercise exercise_reminder)
+
+      (time_for_practice_reminder practice_reminder)
+      (already_reminded_practice practice_reminder)
+
       (time_to_take_medicine am_meds)
-      (already_took_medicine  am_meds)
+      ;;(time_to_take_medicine pm_meds)
+      ;;(already_took_medicine  pm_meds)
+      ;;(already_took_medicine  am_meds)
+
 
       (priority_1)
       ;;(abort)

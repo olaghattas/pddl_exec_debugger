@@ -19,6 +19,7 @@
 (:predicates
 
   (started)
+  ;;(debug)
   (robot_at ?lmr - Landmark)
   (person_at ?t - Time ?p - Person ?lmp - Landmark)
   (person_currently_at ?p - Person ?lmp - Landmark)
@@ -129,6 +130,7 @@
       (person_currently_at ?p ?lmp)
       (visible_location ?lmp)
       (started)
+      ;;(debug)
     )
 	:effect (and
 	          (success)
@@ -170,6 +172,7 @@
       (person_currently_at ?p ?lmp)
       (visible_location ?lmp)
       (started)
+      ;;(debug)
 
     )
 	:effect (and
@@ -211,6 +214,7 @@
       (person_currently_at ?p ?dest)
       (visible_location ?dest)
       (started)
+      ;;(debug)
     )
 	:effect (and
 	          (success)
@@ -253,6 +257,7 @@
       (person_currently_at ?p ?lmp)
       (visible_location ?lmp)
       (started)
+      ;;(debug)
 
     )
 	:effect (and
@@ -294,7 +299,8 @@
       ;; person in visible area
       (person_currently_at ?p ?lmp)
       (visible_location ?lmp)
-     ;; (started)
+      (started)
+      ;;(debug)
 
     )
 	:effect (and
@@ -344,28 +350,72 @@
 ;; triggered when there should be protocol and it has been done
 
 (:action Shutdown
-	:parameters (?med - MedicineProtocol)
-	:precondition (and
-	    (priority_4)
-	    ;;(forall (?ask - AskBeforeHelp) (and (initiate_ask ?ask) (already_helped ?ask)))
-	    ;;(forall (?med - MedicineProtocol)
-        (and
-            (time_to_take_medicine ?med)
-            (not
-                (and
-                    (not (already_took_medicine ?med))
-                    (not (already_reminded_medicine ?med))
+	:parameters ()
+	:precondition
+	    (and
+            (priority_4)
+
+            ;; CANT SHUTDOWN IF time to do something is true and
+            ;; all predicates indicating that they it is done are false
+            ;; give F in such case
+
+
+           ;; (and
+                ;;; 1
+                ;;; forall would give false if one is F
+                (forall (?med - MedicineProtocol)
+                    (not
+                        (and
+                            (time_to_take_medicine ?med)
+                            (not (already_took_medicine ?med))
+                            (not (already_reminded_medicine ?med))
+                        )
+                    )
                 )
-            )
-        )
-        ;;)
+                ;;; 2
+                (forall (?internal - InternalCheckReminderProtocol)
+                    (not
+                        (and
+                            (time_for_internal_check_reminder ?internal)
+                            (not (already_reminded_internal_check ?internal))
+                        )
+                    )
+                )
+                ;;; 3
+                (forall (?mv - MoveReminderProtocol)
+                    (not
+                        (and
+                            (time_for_move_reminder ?mv)
+                            (not (already_reminded_move ?mv))
+                        )
+                    )
+                )
+                ;;; 4
+                (forall (?ex - ExerciseReminderProtocol)
+                    (not
+                        (and
+                            (time_for_exercise_reminder ?ex)
+                            (not (already_reminded_exercise ?ex))
+                        )
+                    )
+                )
 
-        ;;(forall (?internal - InternalCheckReminderProtocol) (not (internal_check_reminder_enabled ?internal)) )
-        ;;(forall (?practice - PracticeReminderProtocol) (not (practice_reminder_enabled ?practice)) )
-        ;;(forall (?move - MoveReminderProtocol) (not (move_reminder_enabled ?move)) )
-        ;;(forall (?ex - ExerciseReminderProtocol) (not (exercise_reminder_enabled ?ex)) )
+                ;;; 5
+                (forall (?practice - PracticeReminderProtocol)
+                    (not
+                        (and
+                            (time_for_practice_reminder ?practice)
+                            (not (already_reminded_practice ?practice))
+                        )
+                    )
+                )
 
-		)
+
+
+
+           ;; )
+
+	    )
 	:effect (and (success)
 	            (not (priority_5))
                 ;;(forall (?ask - AskBeforeHelp) (not (askforhelp_protocol_enabled ?ask)) )

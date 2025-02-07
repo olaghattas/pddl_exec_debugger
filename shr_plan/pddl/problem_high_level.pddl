@@ -14,13 +14,20 @@
      t1 - Time ;;t2 t3 t4 t5
   )
   (:init
-      ;;(priority_5)
+
+      ;; testing medicine
+      (time_to_take_medicine am_meds)
+      ;;(already_took_medicine  noon)
+
+      (priority_1)
       ;;(abort)
       (visible_location living_room)
       (visible_location bedroom)
+      ;;(time_for_practice_reminder exercise_reminder)
+      ;;(time_for_practice_reminder practice_reminder)
 
-      ;;(person_currently_at nathan visible_area)
-
+      (person_currently_at nathan living_room)
+      (robot_at living_room)
       ;;(person_currently_at nathan visible_area)
       ;;(time_for_walk_reminder walking_reminder)
 
@@ -39,9 +46,6 @@
       ;;(time_for_gym_reminder gym_reminder)
       ;;(already_reminded_gym gym_reminder)
 
-      ;; testing medicine
-      ;;(time_to_take_medicine morning)
-      ;;(already_took_medicine  noon)
 
       ;; testing sleep
       ;;(time_for_sleep_reminder sleep_reminder)
