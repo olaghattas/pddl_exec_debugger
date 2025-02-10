@@ -50,7 +50,7 @@
 
   ;; practice reminder
   (time_for_practice_reminder ?pra - PracticeReminderProtocol)
-  (already_reminded_practice ?pra - PracticeReminderProtocol)
+  ;(already_reminded_practice ?pra - PracticeReminderProtocol)
 
   ;; priority
   (priority_1)
@@ -68,6 +68,7 @@
 	:parameters (?from - Landmark ?to - Landmark)
 	:precondition (and
 	                (robot_at ?from)
+	                (started)
 	          )
 	:effect (and (robot_at ?to) (not (robot_at ?from)) )
 )
@@ -106,6 +107,7 @@
 (:action StartROS
 	:parameters ()
 	:precondition (;;and
+	       ;; will be triggered before it starts a protocol
            ;; (priority_2)
 		)
 	:effect (and
@@ -353,67 +355,63 @@
 	:parameters ()
 	:precondition
 	    (and
+	        (started)
+	        ;; has to be higher priority than idle
             (priority_4)
 
             ;; CANT SHUTDOWN IF time to do something is true and
             ;; all predicates indicating that they it is done are false
             ;; give F in such case
 
-
-           ;; (and
-                ;;; 1
-                ;;; forall would give false if one is F
-                (forall (?med - MedicineProtocol)
-                    (not
-                        (and
-                            (time_to_take_medicine ?med)
-                            (not (already_took_medicine ?med))
-                            (not (already_reminded_medicine ?med))
-                        )
+            ;; need to add a forall for every protocol objects in problem
+            ;;; 1
+            ;;; forall would give false if one is F
+            (forall (?med - MedicineProtocol)
+                (not
+                    (and
+                        (time_to_take_medicine ?med)
+                        (not (already_took_medicine ?med))
+                        (not (already_reminded_medicine ?med))
                     )
                 )
-                ;;; 2
-                (forall (?internal - InternalCheckReminderProtocol)
-                    (not
-                        (and
-                            (time_for_internal_check_reminder ?internal)
-                            (not (already_reminded_internal_check ?internal))
-                        )
+            )
+            ;;; 2
+            (forall (?internal - InternalCheckReminderProtocol)
+                (not
+                    (and
+                        (time_for_internal_check_reminder ?internal)
+                        (not (already_reminded_internal_check ?internal))
                     )
                 )
-                ;;; 3
-                (forall (?mv - MoveReminderProtocol)
-                    (not
-                        (and
-                            (time_for_move_reminder ?mv)
-                            (not (already_reminded_move ?mv))
-                        )
+            )
+            ;;; 3
+            (forall (?mv - MoveReminderProtocol)
+                (not
+                    (and
+                        (time_for_move_reminder ?mv)
+                        (not (already_reminded_move ?mv))
                     )
                 )
-                ;;; 4
-                (forall (?ex - ExerciseReminderProtocol)
-                    (not
-                        (and
-                            (time_for_exercise_reminder ?ex)
-                            (not (already_reminded_exercise ?ex))
-                        )
+            )
+            ;;; 4
+            (forall (?ex - ExerciseReminderProtocol)
+                (not
+                    (and
+                        (time_for_exercise_reminder ?ex)
+                        (not (already_reminded_exercise ?ex))
                     )
                 )
+            )
 
-                ;;; 5
-                (forall (?practice - PracticeReminderProtocol)
-                    (not
-                        (and
-                            (time_for_practice_reminder ?practice)
-                            (not (already_reminded_practice ?practice))
-                        )
+            ;;; 5
+            (forall (?practice - PracticeReminderProtocol)
+                (not
+                    (and
+                        (time_for_practice_reminder ?practice)
+                        (not (already_reminded_practice ?practice))
                     )
                 )
-
-
-
-
-           ;; )
+            )
 
 	    )
 	:effect (and (success)

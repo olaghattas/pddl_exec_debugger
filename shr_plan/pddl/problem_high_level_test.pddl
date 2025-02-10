@@ -14,10 +14,10 @@
      t1 - Time ;;t2 t3 t4 t5
   )
   (:init
-
-       ;; for testing
+      ;;(started)
+      ;; for testing
       (time_for_internal_check_reminder internal_check_reminder)
-      (already_reminded_internal_check internal_check_reminder)
+      ;;(already_reminded_internal_check internal_check_reminder)
 
       (time_for_move_reminder move_reminder)
       (already_reminded_move move_reminder)
@@ -28,7 +28,7 @@
       (time_for_practice_reminder practice_reminder)
       (already_reminded_practice practice_reminder)
 
-      (time_to_take_medicine am_meds)
+      ;;(time_to_take_medicine am_meds)
       ;;(time_to_take_medicine pm_meds)
       ;;(already_took_medicine  pm_meds)
       ;;(already_took_medicine  am_meds)
@@ -41,8 +41,9 @@
       ;;(time_for_practice_reminder practice_reminder)
       ;;(time_for_practice_reminder practice_reminder)
 
-      (person_currently_at nathan living_room)
+      (person_currently_at nathan bedroom)
       (robot_at living_room)
+
       ;;(person_currently_at nathan visible_area)
       ;;(time_for_walk_reminder walking_reminder)
 
