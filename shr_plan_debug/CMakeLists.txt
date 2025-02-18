@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(shr_plan)
+project(shr_plan_debug)
 
 if (NOT CMAKE_CXX_STANDARD)
   set(CMAKE_CXX_STANDARD 14)
@@ -77,8 +77,8 @@ install(TARGETS
   )
 
 install(
-    DIRECTORY pddl
-    DESTINATION share/shr_plan
+    DIRECTORY pddl include
+    DESTINATION share/shr_plan_debug
 )
 
 

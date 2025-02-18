@@ -14,16 +14,17 @@
 
 #include "shr_utils/geometry.hpp"
 #include <shr_parameters.hpp>
-#include <shr_plan/actions.hpp>
+#include <shr_plan_debug/actions.hpp>
+#include <shr_plan_debug/intersection_helpers.hpp>
 
-#include <shr_plan/world_state_converter.hpp>
+#include <shr_plan_debug/world_state_converter.hpp>
 #include <cstdlib>  // for getenv
 
 using namespace pddl_lib;
 
 Domain load_domain(const std::string &domain_file) {
     std::string domain_str;
-    std::filesystem::path pkg_dir = ament_index_cpp::get_package_share_directory("shr_plan");
+    std::filesystem::path pkg_dir = ament_index_cpp::get_package_share_directory("shr_plan_debug");
     std::filesystem::path domain_file_path = pkg_dir / "pddl" / domain_file;
 
     std::ifstream domain_file_stream(domain_file_path.c_str());
@@ -344,6 +345,21 @@ int main(int argc, char **argv) {
                 }
             }
     );
+
+
+    std::filesystem::path pkg_dir = ament_index_cpp::get_package_share_directory("shr_plan_debug");
+    std::filesystem::path outputFile = pkg_dir / "include" / "shr_plan_debug" / "intersection.txt";
+
+    std::cout << "outputFile: "  << outputFile.c_str() << std::endl;
+    auto predicates = read_predicates_from_file(outputFile.c_str());
+
+    // Print the predicates
+    for (const auto& [first, second, third] : predicates) {
+        std::cout << "Keyword: " << first << ", ProtocolName: " << second << ", ProtocolType: " << third << std::endl;
+        InstantiatedParameter active_protocol = {second, third};
+        InstantiatedPredicate pred{first, {active_protocol}};
+        kb.insert_predicate(pred);
+    }
 
     // run the domains
     BT::BehaviorTreeFactory factory = create_tree_factory<ProtocolActions>();

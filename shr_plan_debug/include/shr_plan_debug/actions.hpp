@@ -1,8 +1,10 @@
 #include "bt_shr_actions.hpp"
 #include "rclcpp/rclcpp.hpp"
-#include <shr_plan/world_state_converter.hpp>
-#include "shr_plan/helpers.hpp"
+#include <shr_plan_debug/world_state_converter.hpp>
+#include "shr_plan_debug/helpers.hpp"
+#include "shr_plan_debug/intersection_helpers.hpp"
 #include "gui_interfaces/srv/action_req.hpp"
+#include <tuple>
 
 namespace pddl_lib {
 
@@ -167,7 +169,7 @@ namespace pddl_lib {
     }
 
     std::string get_file_content(const std::string &file_name) {
-        std::filesystem::path pkg_dir = ament_index_cpp::get_package_share_directory("shr_plan");
+        std::filesystem::path pkg_dir = ament_index_cpp::get_package_share_directory("shr_plan_debug");
         auto pddl_path = pkg_dir / "pddl";
         auto problem_high_level_file = (pddl_path / file_name).string();
         std::ifstream f(problem_high_level_file);
@@ -302,26 +304,12 @@ namespace pddl_lib {
 
     }
 
-
     class ProtocolActions : public pddl_lib::ActionInterface {
     public:
         std::string input;
         int input_time;
 
-        // Timeout for now doesn't do anything inorder for the protocol to be retriggered
-        BT::NodeStatus high_level_domain_Idle(const InstantiatedAction &action) override {
-            auto &kb = KnowledgeBase::getInstance();
-            kb.clear_unknowns();
-            kb.insert_predicate({"abort", {}});
-
-            // CHECKING IF ROBOT IS CHARGING FIRST
-            auto [ps, lock] = ProtocolState::getConcurrentInstance();
-            lock.Lock();
-//            auto params = ps.world_state_converter->get_params();
-
-            std::cout << " ------ HIGH LEVEL IDLE ----" << std::endl;
-            RCLCPP_INFO(rclcpp::get_logger(std::string("user=") + "high_level_domain_Idle" + "started"), "user...");
-
+        BT::NodeStatus charge_robot(ProtocolState &ps, const InstantiatedAction &action) {
             if (!ps.world_state_converter->get_world_state_msg()->robot_charging == 1) {
                 std::cout << "Robot not charging " << std::endl;
                 auto robot_resource = ps.claimRobot();
@@ -336,11 +324,11 @@ namespace pddl_lib {
                     std::cout << "Moving robot to home location.\n";
                 } else if (input == "n") {
                     std::cout << "You chose no.\n";
-                    lock.UnLock();
+//                    lock.UnLock();
                     return BT::NodeStatus::FAILURE;
                 } else {
                     std::cout << "Invalid input. Please enter 'y' or 'n'.\n";
-                    lock.UnLock();
+//                    lock.UnLock();
                     return BT::NodeStatus::FAILURE;
                 }
 
@@ -355,11 +343,11 @@ namespace pddl_lib {
                     std::cout << "You chose yes.\n";
                 } else if (input == "n") {
                     std::cout << "You chose no.\n";
-                    lock.UnLock();
+//                    lock.UnLock();
                     return BT::NodeStatus::FAILURE;
                 } else {
                     std::cout << "Invalid input. Please enter 'y' or 'n'.\n";
-                    lock.UnLock();
+//                    lock.UnLock();
                     return BT::NodeStatus::FAILURE;
                 }
 
@@ -371,11 +359,29 @@ namespace pddl_lib {
                 std::cout << "ROBOT NOT CHARGING AFTER DOCKING " << std::endl;
                 std::cout << "Undock " << std::endl;
                 input = ps.world_state_converter->send_request(ps.questions_map.at("undock"), "");
-
+                return BT::NodeStatus::FAILURE;
             }
+            return BT::NodeStatus::SUCCESS;
+        }
+        // Timeout for now doesn't do anything inorder for the protocol to be retriggered
+        BT::NodeStatus high_level_domain_Idle(const InstantiatedAction &action) override {
+            auto &kb = KnowledgeBase::getInstance();
+            kb.clear_unknowns();
+            kb.insert_predicate({"abort", {}});
+
+            // CHECKING IF ROBOT IS CHARGING FIRST
+            auto [ps, lock] = ProtocolState::getConcurrentInstance();
+            lock.Lock();
+//            auto params = ps.world_state_converter->get_params();
+
+            std::cout << " ------ HIGH LEVEL IDLE ----" << std::endl;
+            RCLCPP_INFO(rclcpp::get_logger(std::string("user=") + "high_level_domain_Idle" + "started"), "user...");
+
+            BT::NodeStatus status = charge_robot(ps, action);
+
             ps.active_protocol = {};
             lock.UnLock();
-            return BT::NodeStatus::SUCCESS;
+            return status;
         }
 
         BT::NodeStatus high_level_domain_MoveToLandmark(const InstantiatedAction &action) override {
@@ -439,34 +445,139 @@ namespace pddl_lib {
 
         BT::NodeStatus high_level_domain_Shutdown(const InstantiatedAction &action) override {
             std::cout << " ------ Shutdown  ----" << std::endl;
+
             auto &kb = KnowledgeBase::getInstance();
-//            InstantiatedParameter inst = action.parameters[0];
-//            InstantiatedParameter cur = action.parameters[2];
-//            InstantiatedParameter dest = action.parameters[3];
-//            if (dest.name == cur.name) {
-//                cur.name = "living_room";
+
+            BT::NodeStatus status;
+            auto [ps, lock] = ProtocolState::getConcurrentInstance();
+
+
+            // dock the robot if it is not charging
+            while (status !=BT::NodeStatus::SUCCESS){
+                /// TODO: IF IT RUNS FOR TOO LONG ISSUE MIGHT BE IN THE CHARGER
+                /// TODO: DISPLAY A WARNING ON THE SCREEN THAT IT NEEDS HELP
+                lock.Lock();
+                status = charge_robot(ps, action);
+                lock.UnLock();
+            }
+
+            // Get keyword predicates to load them in next protocol
+            std::cout << " RUNNING MATCH " << std::endl;
+            std::filesystem::path pkg_dir = ament_index_cpp::get_package_share_directory("shr_plan_debug");
+            std::filesystem::path keywordsFile = pkg_dir / "include" / "shr_plan_debug" / "keywords.txt";
+
+            const char* homeDir = std::getenv("HOME");
+
+            std::filesystem::path outputFile = pkg_dir / "include" / "shr_plan_debug" / "intersection.txt";
+
+            const std::unordered_map<std::string, std::string> protocol_type_ = {
+                    {"am_meds", "MedicineProtocol"},
+                    {"pm_meds", "MedicineProtocol"},
+                    {"move_reminder", "MoveReminderProtocol"},
+                    {"internal_check_reminder", "InternalCheckReminderProtocol"},
+                    {"practice_reminder", "PracticeReminderProtocol"},
+                    {"exercise_reminder", "ExerciseReminderProtocol"},
+                    {"breakfast", "FoodProtocol"}
+            };
+
+            const std::unordered_map<std::string, std::vector<std::string>> keyword_protocol_ = {
+                    {"already_took_medicine", {"am_meds", "pm_meds"}},
+                    {"already_reminded_medicine", {"am_meds", "pm_meds"}},
+                    {"already_reminded_move",{"move_reminder"}},
+                    {"already_reminded_internal_check",{"internal_check_reminder"}},
+                    {"already_reminded_practice",{"practice_reminder"}},
+                    {"already_ate",{"breakfast"}},
+                    {"already_called_about_eating",{"breakfast"}},
+                    {"already_reminded_exercise",{"exercise_reminder"}}
+            };
+
+            // --- Read Keywords from File ---
+            //  Each line is assumed to contain one keyword.
+            std::ifstream ifs(keywordsFile);
+            if (!ifs) {
+                std::cerr << "Failed to open keywords file: " << keywordsFile << std::endl;
+//                return BT::NodeStatus::FAILURE;
+            }
+
+            std::vector<std::tuple<std::string, std::string, std::string>> keyword_protocol_list;
+            std::string line;
+            while (std::getline(ifs, line)) {
+                // Here, 'line' is the keyword (you may trim whitespace if necessary).
+                std::string keyword = line;
+
+                // Check if the keyword exists in keyword_protocol_.
+                auto keywordIt = keyword_protocol_.find(keyword);
+                if (keywordIt != keyword_protocol_.end()) {
+
+                    // For each protocol name associated with this keyword...
+                    for (const auto& protocolName : keywordIt->second) {
+                        // Look up the protocol type using protocol_type_.
+                        auto typeIt = protocol_type_.find(protocolName);
+                        if (typeIt != protocol_type_.end()) {
+                            // Create an InstantiatedParameter with the protocol name and its type.
+                            InstantiatedParameter active_protocol { protocolName, typeIt->second };
+                            InstantiatedPredicate pred{keyword, {active_protocol}};
+
+                            // "Find" the predicate in the knowledge base.
+                            if (kb.find_predicate(pred)){
+                                // add to the list
+                                keyword_protocol_list.emplace_back(keyword, protocolName, typeIt->second);
+
+                            }
+                            // Add the parameter to the predicate.
+                            pred.parameters.push_back(active_protocol);
+                        } else {
+                            std::cerr << "Protocol name '" << protocolName
+                                      << "' not found in protocol_type_." << std::endl;
+                        }
+                    }
+
+
+                } else {
+                    std::cout << "Keyword '" << keyword << "' not associated with any protocol." << std::endl;
+                }
+            }
+            ifs.close();
+
+            write_to_intersection(outputFile.c_str(), keyword_protocol_list);
+
+            // reboot
+            std::cout << " RUNNING REBOOT " << std::endl;
+
+//            const char* password = std::getenv("robot_pass");
+//
+//            if (!password) {
+//                std::cerr << "Environment variable 'robot_pass' not set!" << std::endl;
+//                BT::NodeStatus::FAILURE;
 //            }
-            RCLCPP_INFO(rclcpp::get_logger("@@@@@@@ ########## Shutdown #################"), "Your message here");
 
-//            std::string currentDateTime = getCurrentDateTime();
-            //RCLCPP_INFO(rclcpp::get_logger(std::string("weblog=")+"high_level_domain_StartWanderingProtocol"+"started"), "user...");
-//            RCLCPP_INFO(rclcpp::get_logger(
-//                                currentDateTime + std::string("user=") + "StartMoveReminderProtocol" + "started"),
-//                        "user...");
-//            auto [ps, lock] = ProtocolState::getConcurrentInstance();
-//            lock.Lock();
-//            std::string log_message =
-//                    std::string("weblog=") + currentDateTime + " high_level_domain_StartMoveReminderProtocol" +
-//                    " started";
-//            RCLCPP_INFO(ps.world_state_converter->get_logger(), log_message.c_str());
+//            std::string cmd_reboot = "echo '" + std::string(password) + "' | sudo -S reboot";
+//            std::system(cmd_reboot.c_str());
 
-//            instantiate_protocol("move_reminder.pddl");
-//            instantiate_protocol("move_reminder.pddl", {{"current_loc", cur.name},
-//                                                        {"dest_loc",    dest.name}});
-//            ps.active_protocol = inst;
-//            lock.UnLock();
+
+
             return BT::NodeStatus::SUCCESS;
         }
+
+//        bool checkHighLevelDomain(const std::string& filePath) {
+//            std::ifstream file(filePath);
+//            std::string line;
+//
+//            if (!file.is_open()) {
+//                std::cerr << "Could not open the file." << std::endl;
+//                return false;
+//            }
+//
+//            // Search for the line that contains ":domain high_level_domain"
+//            while (std::getline(file, line)) {
+//                // Trim spaces and check if the line matches ":domain high_level_domain"
+//                if (line.find(":domain high_level_domain") != std::string::npos) {
+//                    return true;
+//                }
+//            }
+//
+//            return false;
+//        }
 
         BT::NodeStatus high_level_domain_StartROS(const InstantiatedAction &action) override {
             std::cout << " ------ Start ros ----" << std::endl;

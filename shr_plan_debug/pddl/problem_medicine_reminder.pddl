@@ -11,9 +11,9 @@
     caregiver_call - CallAction
 )
 (:init
-    (person_at t1 nathan outside)
-    (robot_at outside)
-    (robot_at_time t1 home)
+    ;;(person_at t1 nathan outside)
+    ;;(robot_at outside)
+    ;;(robot_at_time t1 home)
     
     (DetectPerson_enabled)
     (GiveReminder_enabled)
